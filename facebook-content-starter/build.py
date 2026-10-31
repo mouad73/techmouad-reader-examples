@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 
 def validate(story):
+    if type(story.get('demo')) is not bool or type(story.get('reviewed')) is not bool:
+        raise ValueError('demo and reviewed must be JSON booleans')
     for key in ('title', 'caption'):
         if not isinstance(story.get(key), str) or not story[key].strip():
             raise ValueError(f'Missing {key}')
