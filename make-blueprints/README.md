@@ -1,5 +1,7 @@
 # Make blueprints
 
+Arabic end-to-end setup: [WordPress → Telegram](WORDPRESS-TELEGRAM.ar.md), including bot/Chat ID, read-only WordPress connection, receipt fields, a one-post run and duplicate replay.
+
 The JSON files are standalone native Make templates exported from the public TechMouad planner:
 
 - `wordpress-telegram.make-blueprint.json`: published post title + link to Telegram.
