@@ -1,0 +1,349 @@
+{
+  "name": "Reader example — مقال WordPress منشور → رسالة Telegram",
+  "flow": [
+    {
+      "id": 1,
+      "module": "wordpress:watchPosts",
+      "version": 3,
+      "parameters": {
+        "type": "posts",
+        "limit": 10,
+        "status": [
+          "publish"
+        ]
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0,
+          "name": "Watch published posts"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:wordpress4",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "id",
+            "type": "number",
+            "label": "Post ID"
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Title"
+          },
+          {
+            "name": "link",
+            "type": "url",
+            "label": "Link"
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "label": "Status"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "datastore:ExistRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "wp:{{1.id}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0,
+          "name": "Check duplicate"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "exist",
+            "type": "boolean",
+            "label": "Exists"
+          }
+        ]
+      },
+      "filter": {
+        "name": "Valid approved content",
+        "conditions": [
+          [
+            {
+              "a": "{{1.title}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{1.title}}",
+              "o": "text:notequal",
+              "b": ""
+            },
+            {
+              "a": "{{1.link}}",
+              "o": "text:startwith",
+              "b": "https://"
+            },
+            {
+              "a": "{{1.id}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{1.status}}",
+              "o": "text:equal",
+              "b": "publish"
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "datastore:AddRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "wp:{{1.id}}",
+        "overwrite": false,
+        "data": {
+          "state": "pending",
+          "destination_id": "",
+          "updated_at": "{{now}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0,
+          "name": "Reserve before action"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          },
+          {
+            "name": "overwrite",
+            "type": "boolean",
+            "label": "Overwrite an existing record",
+            "required": true
+          },
+          {
+            "name": "data",
+            "type": "collection",
+            "label": "Record",
+            "spec": [
+              {
+                "name": "state",
+                "type": "text",
+                "label": "State"
+              },
+              {
+                "name": "destination_id",
+                "type": "text",
+                "label": "Destination ID"
+              },
+              {
+                "name": "updated_at",
+                "type": "date",
+                "label": "Updated at"
+              }
+            ]
+          }
+        ]
+      },
+      "filter": {
+        "name": "Not already reserved",
+        "conditions": [
+          [
+            {
+              "a": "{{2.exist}}",
+              "o": "boolean:equal",
+              "b": false
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "module": "telegram:SendReplyMessage",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "chatId": "",
+        "text": "{{substring(1.title; 0; 500)}}\n{{1.link}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0,
+          "name": "Send title and link"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:telegram",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "chatId",
+            "type": "text",
+            "label": "Chat ID",
+            "required": true
+          },
+          {
+            "name": "text",
+            "type": "text",
+            "label": "Text",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "module": "datastore:UpdateRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "wp:{{1.id}}",
+        "upsert": false,
+        "overwriteArrays": false,
+        "data": {
+          "state": "sent",
+          "destination_id": "{{4.message_id}}",
+          "updated_at": "{{now}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0,
+          "name": "Save confirmed receipt"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          },
+          {
+            "name": "upsert",
+            "type": "boolean",
+            "label": "Insert missing record",
+            "required": true
+          },
+          {
+            "name": "overwriteArrays",
+            "type": "boolean",
+            "label": "Overwrite arrays",
+            "required": true
+          },
+          {
+            "name": "data",
+            "type": "collection",
+            "label": "Record",
+            "spec": [
+              {
+                "name": "state",
+                "type": "text",
+                "label": "State"
+              },
+              {
+                "name": "destination_id",
+                "type": "text",
+                "label": "Destination ID"
+              },
+              {
+                "name": "updated_at",
+                "type": "date",
+                "label": "Updated at"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": true,
+      "slots": null,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "notes": [
+      {
+        "moduleIds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "content": "<h3>TechMouad · Setup before activation</h3><ol><li>أنشئ سيناريو جديداً فارغاً في Make، ثم اختر More → Import blueprint وارفع ملف make-blueprint.json. احفظ الخطة TXT كدليل إعداد منفصل.</li><li>افتح كل وحدة وحدد اتصالاتك داخل Make فقط. لا يحتوي الملف على توكن أو اتصال أو Data store من حساب TechMouad.</li><li>أنشئ Data store مخصصاً لهذا السيناريو والمصدر، بحقلَي النص state وdestination_id وحقل التاريخ updated_at. المفتاح Key مدمج في Make. اختر المخزن نفسه في الوحدات 2 و3 و5، ثم احفظ كل وحدة وأعد فحص ربط الحقول.</li><li>حدد اتصال WordPress في الوحدة 1، واختر Choose where to start → From now on، ثم حدد Chat ID في الوحدة 4.</li><li>الوحدة 4 ترسل عنواناً ورابطاً كنص عادي دون تنسيق Markdown أو HTML.</li><li>الجدولة لا تنتقل في ملف Blueprint: اضبطها داخل Make على كل 15 دقيقة، وتحقق من المنطقة الزمنية UTC في إعدادات المنظمة ومن توفر الفترة في خطتك.</li><li>أبقِ Sequential processing مفعلاً. حجز pending يسبق الإجراء، وOverwrite في الوحدة 3 معطل. لا تضف معالج خطأ يتابع إلى الإجراء بعد فشل الحجز.</li><li>اختبر Run once ببيانات تجريبية في حسابك قبل التفعيل. إذا بقي سجل pending بعد خطأ أو مهلة، راجع الوجهة أولاً قبل حذف الحجز أو إعادة المحاولة. لا يوجد ضمان إرسال مرة واحدة عند إعادة تشغيل إجراء يدوياً.</li><li>الملف ينشئ وحدات وربط حقول عند استيراده؛ الاتصالات والمخزن والجدولة والتفعيل خطوات ينجزها صاحب الحساب.</li></ol>",
+        "isFilterNote": false,
+        "metadata": {
+          "color": "#2e7059"
+        }
+      }
+    ]
+  }
+}

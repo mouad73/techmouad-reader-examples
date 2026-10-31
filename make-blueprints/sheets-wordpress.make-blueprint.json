@@ -1,0 +1,456 @@
+{
+  "name": "Reader example — صفوف Google Sheets المعتمدة → مسودات WordPress",
+  "flow": [
+    {
+      "id": 1,
+      "module": "google-sheets:filterRows",
+      "version": 2,
+      "parameters": {},
+      "mapper": {
+        "from": "drive",
+        "spreadsheetId": "",
+        "sheetId": "Content",
+        "includesHeaders": true,
+        "tableFirstRow": "A1:Z1",
+        "valueRenderOption": "UNFORMATTED_VALUE",
+        "dateTimeRenderOption": "FORMATTED_STRING",
+        "filter": [
+          [
+            {
+              "a": "D",
+              "o": "text:equal",
+              "b": "ready"
+            }
+          ]
+        ],
+        "sortOrder": "asc",
+        "limit": "10"
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0,
+          "name": "Search approved content"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "0",
+            "type": "text",
+            "label": "item_id (A)"
+          },
+          {
+            "name": "1",
+            "type": "text",
+            "label": "title (B)"
+          },
+          {
+            "name": "2",
+            "type": "text",
+            "label": "content (C)"
+          },
+          {
+            "name": "3",
+            "type": "text",
+            "label": "status (D)"
+          },
+          {
+            "name": "4",
+            "type": "text",
+            "label": "post_id (E)"
+          },
+          {
+            "name": "__ROW_NUMBER__",
+            "type": "number",
+            "label": "Row number"
+          },
+          {
+            "name": "__SPREADSHEET_ID__",
+            "type": "text",
+            "label": "Spreadsheet ID"
+          },
+          {
+            "name": "__SHEET__",
+            "type": "text",
+            "label": "Sheet"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "datastore:ExistRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "{{1.`__SPREADSHEET_ID__`}}:{{1.`__SHEET__`}}:{{1.`0`}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0,
+          "name": "Check duplicate"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          }
+        ],
+        "interface": [
+          {
+            "name": "exist",
+            "type": "boolean",
+            "label": "Exists"
+          }
+        ]
+      },
+      "filter": {
+        "name": "Valid approved content",
+        "conditions": [
+          [
+            {
+              "a": "{{1.`3`}}",
+              "o": "text:equal",
+              "b": "ready"
+            },
+            {
+              "a": "{{ifempty(1.`4`; emptystring)}}",
+              "o": "text:equal",
+              "b": ""
+            },
+            {
+              "a": "{{1.`0`}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{1.`0`}}",
+              "o": "text:notequal",
+              "b": ""
+            },
+            {
+              "a": "{{1.`1`}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{1.`1`}}",
+              "o": "text:notequal",
+              "b": ""
+            },
+            {
+              "a": "{{1.`2`}}",
+              "o": "exist"
+            },
+            {
+              "a": "{{1.`2`}}",
+              "o": "text:notequal",
+              "b": ""
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "module": "datastore:AddRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "{{1.`__SPREADSHEET_ID__`}}:{{1.`__SHEET__`}}:{{1.`0`}}",
+        "overwrite": false,
+        "data": {
+          "state": "pending",
+          "destination_id": "",
+          "updated_at": "{{now}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0,
+          "name": "Reserve before action"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          },
+          {
+            "name": "overwrite",
+            "type": "boolean",
+            "label": "Overwrite an existing record",
+            "required": true
+          },
+          {
+            "name": "data",
+            "type": "collection",
+            "label": "Record",
+            "spec": [
+              {
+                "name": "state",
+                "type": "text",
+                "label": "State"
+              },
+              {
+                "name": "destination_id",
+                "type": "text",
+                "label": "Destination ID"
+              },
+              {
+                "name": "updated_at",
+                "type": "date",
+                "label": "Updated at"
+              }
+            ]
+          }
+        ]
+      },
+      "filter": {
+        "name": "Not already reserved",
+        "conditions": [
+          [
+            {
+              "a": "{{2.exist}}",
+              "o": "boolean:equal",
+              "b": false
+            }
+          ]
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "module": "wordpress:createPost",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "type": "posts",
+        "title": "{{1.`1`}}",
+        "content": "{{1.`2`}}",
+        "status": "draft"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0,
+          "name": "Create draft only"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:wordpress4",
+            "label": "Connection",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "title",
+            "type": "text",
+            "label": "Title",
+            "required": true
+          },
+          {
+            "name": "content",
+            "type": "text",
+            "label": "Content",
+            "required": true
+          },
+          {
+            "name": "type",
+            "type": "select",
+            "label": "Type",
+            "required": true
+          },
+          {
+            "name": "status",
+            "type": "select",
+            "label": "Status"
+          }
+        ],
+        "restore": {
+          "expect": {
+            "type": {
+              "label": "Posts"
+            },
+            "status": {
+              "label": "Draft"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "datastore:UpdateRecord",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "key": "{{1.`__SPREADSHEET_ID__`}}:{{1.`__SHEET__`}}:{{1.`0`}}",
+        "upsert": false,
+        "overwriteArrays": false,
+        "data": {
+          "state": "draft_created",
+          "destination_id": "{{4.id}}",
+          "updated_at": "{{now}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 0,
+          "name": "Save confirmed receipt"
+        },
+        "parameters": [
+          {
+            "name": "datastore",
+            "type": "datastore",
+            "label": "Data store",
+            "required": true
+          }
+        ],
+        "expect": [
+          {
+            "name": "key",
+            "type": "text",
+            "label": "Key",
+            "required": true
+          },
+          {
+            "name": "upsert",
+            "type": "boolean",
+            "label": "Insert missing record",
+            "required": true
+          },
+          {
+            "name": "overwriteArrays",
+            "type": "boolean",
+            "label": "Overwrite arrays",
+            "required": true
+          },
+          {
+            "name": "data",
+            "type": "collection",
+            "label": "Record",
+            "spec": [
+              {
+                "name": "state",
+                "type": "text",
+                "label": "State"
+              },
+              {
+                "name": "destination_id",
+                "type": "text",
+                "label": "Destination ID"
+              },
+              {
+                "name": "updated_at",
+                "type": "date",
+                "label": "Updated at"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "module": "google-sheets:updateRow",
+      "version": 2,
+      "parameters": {},
+      "mapper": {
+        "mode": "map",
+        "spreadsheetId": "{{1.`__SPREADSHEET_ID__`}}",
+        "sheetId": "{{1.`__SHEET__`}}",
+        "rowNumber": "{{1.`__ROW_NUMBER__`}}",
+        "tableFirstRow": "A1:Z1",
+        "valueInputOption": "RAW",
+        "values": {
+          "0": "{{1.`0`}}",
+          "1": "{{1.`1`}}",
+          "2": "{{1.`2`}}",
+          "3": "draft_created",
+          "4": "{{4.id}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 0,
+          "name": "Write draft ID back"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": true,
+      "slots": null,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "notes": [
+      {
+        "moduleIds": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "content": "<h3>TechMouad · Setup before activation</h3><ol><li>أنشئ سيناريو جديداً فارغاً في Make، ثم اختر More → Import blueprint وارفع ملف make-blueprint.json. احفظ الخطة TXT كدليل إعداد منفصل.</li><li>افتح كل وحدة وحدد اتصالاتك داخل Make فقط. لا يحتوي الملف على توكن أو اتصال أو Data store من حساب TechMouad.</li><li>أنشئ Data store مخصصاً لهذا السيناريو والمصدر، بحقلَي النص state وdestination_id وحقل التاريخ updated_at. المفتاح Key مدمج في Make. اختر المخزن نفسه في الوحدات 2 و3 و5، ثم احفظ كل وحدة وأعد فحص ربط الحقول.</li><li>استخدم ورقة Content مع الأعمدة بهذا الترتيب حرفياً: A=item_id، B=title، C=content، D=status، E=post_id. حدد الملف والورقة في الوحدتين 1 و6. لا تضف أو تحذف أو ترتب الصفوف أثناء التشغيل.</li><li>الفلتر يمرر ready وpost_id الفارغ فقط. الوحدة 4 تنشئ draft، والوحدة 6 تحفظ المعرف وتغيّر status إلى draft_created.</li><li>الجدولة لا تنتقل في ملف Blueprint: اضبطها داخل Make على كل 15 دقيقة، وتحقق من المنطقة الزمنية UTC في إعدادات المنظمة ومن توفر الفترة في خطتك.</li><li>أبقِ Sequential processing مفعلاً. حجز pending يسبق الإجراء، وOverwrite في الوحدة 3 معطل. لا تضف معالج خطأ يتابع إلى الإجراء بعد فشل الحجز.</li><li>اختبر Run once ببيانات تجريبية في حسابك قبل التفعيل. إذا بقي سجل pending بعد خطأ أو مهلة، راجع الوجهة أولاً قبل حذف الحجز أو إعادة المحاولة. لا يوجد ضمان إرسال مرة واحدة عند إعادة تشغيل إجراء يدوياً.</li><li>الملف ينشئ وحدات وربط حقول عند استيراده؛ الاتصالات والمخزن والجدولة والتفعيل خطوات ينجزها صاحب الحساب.</li></ol>",
+        "isFilterNote": false,
+        "metadata": {
+          "color": "#2e7059"
+        }
+      }
+    ]
+  }
+}

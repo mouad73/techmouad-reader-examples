@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="مثال مستقل لقائمة تنقل متجاوبة، أُعد بعد دراسة سلوك مشروع نملكه باستخدام REA واختبارات المتصفح.">
+  <title>من الدليل إلى التطبيق — تجربة REA</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="navigation.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#services">انتقل إلى المحتوى</a>
+  <header data-header>
+    <a class="brand" href="#services"><span aria-hidden="true">R.</span> من الدليل إلى التطبيق</a>
+    <button data-menu-toggle aria-controls="navigation" aria-expanded="false" aria-label="Open navigation" type="button"><span aria-hidden="true">☰</span><span>القائمة</span></button>
+    <nav id="navigation" class="site-nav" data-navigation aria-label="التنقل الرئيسي">
+      <a href="#services">الفكرة</a><a href="#work">التجربة</a><a href="#about">النتيجة</a>
+    </nav>
+  </header>
+  <main>
+    <section id="services" class="hero">
+      <p class="eyebrow">دراسة تطبيقية · REA × JavaScript</p>
+      <h1>افهم السلوك.<br><em>ثم اختبر بناءك.</em></h1>
+      <p class="lead">مثال مستقل يعيد بناء سلوك التنقل الذي تحققنا منه في مشروع Portfolio الذي نملكه. لا يحتاج إلى خادم تطبيقات أو قاعدة بيانات.</p>
+      <a class="action" href="#work">شاهد ما اختبرناه <span aria-hidden="true">↓</span></a>
+      <div class="facts"><span><b>01</b> قائمة قابلة للفتح والإغلاق</span><span><b>02</b> إغلاق عند اختيار رابط</span><span><b>03</b> حالة للرأس عند التمرير</span></div>
+    </section>
+    <section id="work">
+      <p class="eyebrow">من الملاحظة إلى التحقق</p><h2>التحليل الساكن بداية الدليل.</h2>
+      <p>حدد REA مواضع في الشيفرة. ثم اختبرنا السلوك فعلياً في المتصفح وقارنّا المثال المستقل بالمشروع الأصلي ضمن هذا النطاق.</p>
+      <div class="cards"><article><span>01 / افتح</span><h3>حالة واضحة</h3><p>تتزامن القائمة مع الخاصية aria-expanded وقفل تمرير الصفحة.</p></article><article><span>02 / انتقل</span><h3>إغلاق متوقع</h3><p>اختيار رابط يعيد القائمة إلى حالة الإغلاق.</p></article><article><span>03 / غيّر الحجم</span><h3>حد معروف</h3><p>فوق عرض 860 بكسل تُغلق قائمة الهاتف. يتحقق الاختبار من الحد نفسه.</p></article></div>
+    </section>
+    <section id="about"><p class="eyebrow">نطاق المثال</p><h2>ثلاثة ملفات. سلوك محدود. اختبار قابل للإعادة.</h2><p>هذه إعادة بناء مستقلة للتنقل وحالة الرأس فقط، وليست استنساخاً كاملاً للتطبيق. فُصلت النتيجة عن أداة التحليل: استضافتها تحتاج إلى تقديم HTML وCSS وJavaScript فقط.</p><a class="action" href="#services">العودة إلى البداية ↑</a></section>
+  </main>
+  <footer>مثال دراسة REA · TechMouad · لا يجمع بيانات ولا يستدعي خدمات ذكاء اصطناعي.</footer>
+</body>
+</html>
