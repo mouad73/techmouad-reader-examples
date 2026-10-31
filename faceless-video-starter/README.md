@@ -2,6 +2,8 @@
 
 Python 3.11+، وFFmpeg مثبت مع دعم libass/subtitles وخط يدعم العربية. لا توجد مكتبات Python إضافية. المخرجات فيديو صامت 1080×1920؛ لا توليد صور أو أصوات أو رفع إلى YouTube/Facebook.
 
+افتح الطرفية داخل هذا المجلد، وتحقق أولاً من ظهور إصدار عبر `ffmpeg -version` ومن توفر مرشح `subtitles` ضمن `ffmpeg -filters`. إذا لم يُعثر على الأمر، ثبّت FFmpeg من [المصدر الرسمي](https://ffmpeg.org/download.html) واجعله متاحاً في PATH، ثم افتح طرفية جديدة قبل تجربة الرسم. وجود Python وحده لا يكفي لإنشاء MP4.
+
 ```sh
 python render.py --input scenes.example.json --out output/demo --render
 ```

@@ -150,6 +150,22 @@ class Publisher(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pub.settings(env)
 
+    def test_cli_explains_guard_without_exposing_secret(self):
+        env = self.root/'.env'
+        secret = 'PRIVATE_TEST_VALUE_NOT_FOR_OUTPUT'
+        env.write_text('FACEBOOK_PAGE_ID=123456\nFACEBOOK_PAGE_ACCESS_TOKEN='+secret+'\nFACEBOOK_GRAPH_VERSION=v26.0\n', encoding='utf8')
+        with patch.dict(os.environ, {}, clear=True), patch('sys.stderr', new_callable=io.StringIO) as error:
+            code = pub.main(['--package',str(self.folder),'--env-file',str(env),'--publish','--confirm-page-id','999'])
+        self.assertEqual(code,1)
+        self.assertIn('--confirm-page-id must equal FACEBOOK_PAGE_ID',error.getvalue())
+        self.assertNotIn(secret,error.getvalue())
+
+    def test_cli_missing_env_explains_what_to_check(self):
+        with patch('sys.stderr',new_callable=io.StringIO) as error:
+            code = pub.main(['--package',str(self.folder),'--env-file',str(self.root/'missing.env'),'--check-connection'])
+        self.assertEqual(code,1)
+        self.assertIn('--env-file is missing',error.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

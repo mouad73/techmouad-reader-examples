@@ -24,6 +24,10 @@ class GraphFailure(RuntimeError):
         self.uncertain = uncertain
 
 
+class SetupError(ValueError):
+    """Only fixed, credential-free messages authored by this script."""
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -38,7 +42,7 @@ def settings(env_file=None):
                 continue
             key, sep, value = line.partition('=')
             if not sep or not re.fullmatch(r'[A-Z_]+', key.strip()):
-                raise ValueError('Invalid env file line; use KEY=value, without shell expressions')
+                raise SetupError('Invalid env file line; use KEY=value, without shell expressions')
             values[key.strip()] = value.strip().strip('\"\'')
     # Environment variables take precedence; no interpolation or shell execution.
     for key in ('FACEBOOK_PAGE_ID', 'FACEBOOK_PAGE_ACCESS_TOKEN', 'FACEBOOK_GRAPH_VERSION'):
@@ -48,30 +52,34 @@ def settings(env_file=None):
     token = values.get('FACEBOOK_PAGE_ACCESS_TOKEN', '')
     version = values.get('FACEBOOK_GRAPH_VERSION', '')
     if not re.fullmatch(r'[0-9]+', page):
-        raise ValueError('Set FACEBOOK_PAGE_ID to the numeric Page ID')
+        raise SetupError('Set FACEBOOK_PAGE_ID to the numeric Page ID')
     if not token or any(c.isspace() for c in token) or token.startswith('YOUR_'):
-        raise ValueError('Set a private FACEBOOK_PAGE_ACCESS_TOKEN')
+        raise SetupError('Set a private FACEBOOK_PAGE_ACCESS_TOKEN')
     if not re.fullmatch(r'v[0-9]+\.[0-9]+', version):
-        raise ValueError('Set FACEBOOK_GRAPH_VERSION to the version selected for your Meta app')
+        raise SetupError('Set FACEBOOK_GRAPH_VERSION to the version selected for your Meta app')
     return {'page': page, 'token': token, 'version': version}
 
 
 def package(folder):
     folder = Path(folder)
-    story = validate(json.loads((folder/'story.json').read_text(encoding='utf-8-sig')))
+    story = json.loads((folder/'story.json').read_text(encoding='utf-8-sig'))
     if story['demo'] is not False or story['reviewed'] is not True:
-        raise ValueError('Publishing requires demo=false and reviewed=true; demo packages cannot be posted')
+        raise SetupError('Publishing requires demo=false and reviewed=true; demo packages cannot be posted')
+    try:
+        validate(story)
+    except ValueError:
+        raise SetupError('Invalid story.json: review title, caption and at least two real HTTPS source domains, then rebuild') from None
     caption = (folder/'caption.txt').read_text(encoding='utf-8-sig').strip()
     sources = json.loads((folder/'sources.json').read_text(encoding='utf-8-sig'))
     if caption != story['caption'].strip() or sources != story['sources']:
-        raise ValueError('Package text or sources changed; review and rebuild the package')
+        raise SetupError('Package text or sources changed; review and rebuild the package')
     photo = (folder/'post.png').read_bytes()
     if len(photo) > 8*1024*1024:
-        raise ValueError('This starter limits PNG uploads to 8 MiB')
+        raise SetupError('This starter limits PNG uploads to 8 MiB')
     from PIL import Image
     with Image.open(io.BytesIO(photo)) as image:
         if image.format != 'PNG' or image.size != (1080, 1350):
-            raise ValueError('Expected the generated 1080x1350 PNG; review and rebuild')
+            raise SetupError('Expected the generated 1080x1350 PNG; review and rebuild')
         image.verify()
     text = caption+'\n\nالمصادر:\n'+'\n'.join(s['url'] for s in sources)
     # Fingerprint the actual bytes to upload; a shared ledger also catches copied folders.
@@ -113,7 +121,7 @@ def request(config, method, path, fields=None, photo=None):
 def check_connection(config, transport=request):
     page = transport(config, 'GET', 'me', {'fields': 'id,name'})
     if str(page.get('id')) != config['page'] or not isinstance(page.get('name'), str) or not page['name']:
-        raise ValueError('Token identity does not match FACEBOOK_PAGE_ID; use the intended Page access token')
+        raise SetupError('Token identity does not match FACEBOOK_PAGE_ID; use the intended Page access token')
     return {'id': str(page['id']), 'name': page['name']}
 
 
@@ -128,7 +136,7 @@ def ledger(path):
 
 def publish(config, item, state, confirm_page, transport=request):
     if confirm_page != config['page']:
-        raise ValueError('--confirm-page-id must equal FACEBOOK_PAGE_ID')
+        raise SetupError('--confirm-page-id must equal FACEBOOK_PAGE_ID; verify the destination before publishing')
     page = check_connection(config, transport)
     now = lambda: datetime.now(timezone.utc).isoformat()
     with closing(ledger(state)) as db:
@@ -136,7 +144,7 @@ def publish(config, item, state, confirm_page, transport=request):
         row = db.execute('SELECT status FROM publications WHERE page=? AND fingerprint=?', (page['id'], item['fingerprint'])).fetchone()
         if row and row[0] != 'rejected':
             db.rollback()
-            raise ValueError('Duplicate or unresolved publication ('+row[0]+'). Inspect the Page and ledger; no automatic retry.')
+            raise SetupError('Duplicate or unresolved publication. Inspect the Page and shared ledger; no automatic retry.')
         db.execute('INSERT OR REPLACE INTO publications VALUES (?,?,?,?,?)', (page['id'], item['fingerprint'], 'pending', None, now()))
         db.commit()
         try:
@@ -180,7 +188,13 @@ def main(argv=None):
         else:
             print(json.dumps(publish(config, item, args.state, args.confirm_page_id), ensure_ascii=False))
         return 0
-    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error, GraphFailure):
+    except (SetupError, GraphFailure) as error:
+        print('Stopped: '+str(error), file=sys.stderr)
+        return 1
+    except FileNotFoundError:
+        print('Stopped: a required package file or --env-file is missing. Check the folder and file names.', file=sys.stderr)
+        return 1
+    except (ValueError, OSError, KeyError, TypeError, sqlite3.Error):
         # Library exceptions could embed credentials: emit only a fixed generic failure.
         print('Stopped. Check reviewed package, Page identity, private configuration and shared publication ledger. No automatic retry. See the setup guide.', file=sys.stderr)
         return 1
