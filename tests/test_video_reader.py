@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,5 +30,14 @@ class VideoReader(unittest.TestCase):
             self.assertEqual(run.call_count,2)
         with patch.object(render.shutil,'which',return_value='ffmpeg.exe'),patch.object(render.subprocess,'run',return_value=subprocess.CompletedProcess([],0,stdout='')):
             with self.assertRaisesRegex(ValueError,'missing subtitles'):render.check_runtime()
+    def test_unicode_output_path_survives_legacy_pipe_encoding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/'تجربة عربية'
+            script=Path(render.__file__)
+            env=dict(os.environ,PYTHONIOENCODING='ascii')
+            result=subprocess.run([sys.executable,str(script),'--input',str(script.with_name('scenes.example.json')),'--out',str(target)],env=env,capture_output=True)
+            self.assertEqual(result.returncode,0,result.stderr.decode('utf8'))
+            self.assertIn('تجربة عربية',result.stdout.decode('utf8'))
+            self.assertTrue((target/'captions.ass').exists())
 
 if __name__=='__main__':unittest.main()

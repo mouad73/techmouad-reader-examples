@@ -4,6 +4,7 @@ import json
 import math
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 def ass_time(seconds):
@@ -49,6 +50,11 @@ def render(folder,duration,executable='ffmpeg'):
     subprocess.run([executable,'-hide_banner','-loglevel','error','-nostdin','-n','-f','lavfi','-i',f'color=c=0x101e36:s=1080x1920:r=24:d={duration}','-vf','subtitles=captions.ass','-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p','video.mp4'],cwd=folder,check=True)
 
 if __name__=='__main__':
+    # Redirected PowerShell output can otherwise select a legacy code page.
+    # Keep Unicode output paths from turning a successful render into exit 1.
+    for stream in (sys.stdout,sys.stderr):
+        if hasattr(stream,'reconfigure'):
+            stream.reconfigure(encoding='utf-8',errors='backslashreplace')
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--input',default=str(Path(__file__).with_name('scenes.example.json')))
     p.add_argument('--out',default='output/demo')
