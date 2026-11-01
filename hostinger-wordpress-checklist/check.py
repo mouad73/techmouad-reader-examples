@@ -30,8 +30,9 @@ class Page(HTMLParser):
 
 def analyze(html,headers=None):
     page=Page();page.feed(html)
-    directives=page.robots+[(headers or {}).get('X-Robots-Tag','')]
-    return {'hasTitle':page.has_title,'canonical':page.canonical,'robotsDirectives':directives,'explicitNoindex':any('noindex' in d.lower() or 'none' in d.lower().split(',') for d in directives),'note':'Observations only. Noindex absence does not prove Google indexing; hPanel settings and backups are not inspected.'}
+    normalized_headers={k.lower():v for k,v in (headers or {}).items()}
+    directives=page.robots+[normalized_headers.get('x-robots-tag','')]
+    return {'hasTitle':page.has_title,'canonical':page.canonical,'robotsDirectives':directives,'explicitNoindex':any('noindex' in d.lower() or 'none' in [v.strip() for v in d.lower().split(',')] for d in directives),'note':'Observations only. Noindex absence does not prove Google indexing; hPanel settings and backups are not inspected.'}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--site',required=True);args=parser.parse_args()
