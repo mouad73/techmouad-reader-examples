@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: techmouad-shorts-host-test
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: off
+    envVars:
+      - key: HOST_TEST_TOKEN
+        generateValue: true
+      - key: HOST_TEST_VIDEO_URL
+        value: https://www.youtube.com/shorts/5dWszRRzDZw
